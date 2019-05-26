@@ -242,7 +242,7 @@ dissectTx = function(tvbuf, offset, root)
 
   memo_type, offset = readInt(tvbuf, offset)
   if memo_type == 0 then
-    _, offset = readInt(tvbuf, offset)
+    -- no-op
   elseif memo_type == 1 then
     len, offset = readInt(tvbuf, offset)
     tree:add(tx_hdr_fields.memo_str, tvbuf:range(offset, len))
@@ -257,7 +257,7 @@ dissectTx = function(tvbuf, offset, root)
 
   count, offset = readInt(tvbuf, offset)
   tree:add(tx_hdr_fields.op_count, count)
-
+print(count)
   for _ = 1, count do
     offset = dissectOp(tvbuf, offset, tree)
   end
@@ -287,7 +287,15 @@ dissectOp = function(tvbuf, offset, root)
 
   type, offset = readInt(tvbuf, offset)
 
-  if type == 1 then
+  if type == 0 then
+    tree:append_text(" - " .. "Create Account")
+
+    tree:add(op_hdr_fields.destination, publicKey(tvbuf:raw(offset + 4, 32)))
+    offset = offset + 36
+
+    amount, offset = readInt64(tvbuf, offset)
+    tree:add(op_hdr_fields.amount, amount)
+  elseif type == 1 then
     tree:append_text(" - " .. "Payment")
 
     tree:add(op_hdr_fields.destination, publicKey(tvbuf:raw(offset + 4, 32)))
