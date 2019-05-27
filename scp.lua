@@ -142,8 +142,8 @@ dissectSCP = function (tvbuf, pktinfo, root, offset)
 
   offset = offset + 4 -- discriminant
 
-  seq, offset = readUInt64(tvbuf, offset)
-  tree:add(hdr_fields.sequence, seq)
+  tree:add(hdr_fields.sequence, tvbuf:range(offset, 8))
+  offset = offset + 8
 
   type, offset = readInt(tvbuf, offset)
 
@@ -176,11 +176,12 @@ dissectSCPMessage = function(tvbuf, offset, root)
   local env_tree = root:add(envelope_proto, tvbuf:range(offset, tvbuf:len() - offset))
   tree = env_tree:add(statement_proto, tvbuf:range(offset, tvbuf:len() - offset))
 
-  tree:add(stmt_hdr_fields.node_id, publicKey(tvbuf:raw(offset + 4, 32)))
+  tree:add(stmt_hdr_fields.node_id, tvbuf:range(offset + 4, 32))
+  tree:add(stmt_hdr_fields.node_id_s, publicKey(tvbuf:raw(offset + 4, 32))):set_generated(true)
   offset = offset + 36
 
-  slot, offset = readUInt64(tvbuf, offset)
-  tree:add(stmt_hdr_fields.slot_idx, slot)
+  tree:add(stmt_hdr_fields.slot_idx, tvbuf:range(offset, 8))
+  offset = offset + 8
 
   type, offset = readInt(tvbuf, offset)
 
@@ -220,16 +221,19 @@ dissectTxSet = function(tvbuf, offset, tree)
 end
 
 dissectTx = function(tvbuf, offset, root)
+  local advance = function(v) offset = offset + v end
+
   local tree = root:add(transaction_proto, tvbuf:range(offset, tvbuf:len() - offset))
 
-  tree:add(tx_hdr_fields.source, publicKey(tvbuf:raw(offset + 4, 32)))
-  offset = offset + 36
+  tree:add(tx_hdr_fields.source, tvbuf:range(offset + 4, 32))
+  tree:add(tx_hdr_fields.source_s, publicKey(tvbuf:raw(offset + 4, 32))):set_generated(true)
+  advance(36)
 
-  fee, offset = readUInt32(tvbuf, offset)
-  tree:add(tx_hdr_fields.fee, fee)
+  tree:add(tx_hdr_fields.fee, tvbuf:range(offset, 4))
+  advance(4)
 
-  seq, offset = readUInt64(tvbuf, offset)
-  tree:add(tx_hdr_fields.sequence, seq)
+  tree:add(tx_hdr_fields.sequence, tvbuf:range(offset, 8))
+  advance(8)
 
   tb_count, offset = readInt(tvbuf, offset)
   if tb_count == 1 then
@@ -247,41 +251,50 @@ dissectTx = function(tvbuf, offset, root)
     len, offset = readInt(tvbuf, offset)
     tree:add(tx_hdr_fields.memo_str, tvbuf:range(offset, len))
 
-    offset = offset + len
+    advance(len)
   elseif memo_type == 2 then
     tree:add(tx_hdr_fields.memo_data, tvbuf:range(offset, 32))
-    offset = offset + 32
+    advance(32)
   else
-    offset = offset + 32
+    advance(32)
   end
 
   count, offset = readInt(tvbuf, offset)
   tree:add(tx_hdr_fields.op_count, count)
-print(count)
+
   for _ = 1, count do
     offset = dissectOp(tvbuf, offset, tree)
   end
 
-  offset = offset + 4 -- reserved
+  advance(4) -- reserved
 
   count, offset = readInt(tvbuf, offset)
   for _ = 1, count do
-    offset = offset + 4 -- hint
+    advance(4) -- hint
 
     count, offset = readInt(tvbuf, offset)
     tree:add(tx_hdr_fields.signature, tvbuf:range(offset, count))
-    offset = offset + count
+    advance(count)
   end
 
   return offset
 end
 
 dissectOp = function(tvbuf, offset, root)
+  local advance = function(v) offset = offset + v end
+
   local tree = root:add(operation_proto, tvbuf:range(offset, tvbuf:len() - offset))
+
+  addDest = function()
+    tree:add(op_hdr_fields.destination, tvbuf:range(offset + 4, 32))
+    tree:add(op_hdr_fields.destination_s, publicKey(tvbuf:raw(offset + 4, 32))):set_generated(true)
+    offset = offset + 36
+  end
 
   count, offset = readInt(tvbuf, offset)
   if count == 1 then
-    tree:add(op_hdr_fields.source, publicKey(tvbuf:raw(offset + 4, 32)))
+    tree:add(op_hdr_fields.source, tvbuf:range(offset + 4, 32))
+    tree:add(op_hdr_fields.source_s, publicKey(tvbuf:raw(offset + 4, 32))):set_generated(true)
     offset = offset + 36
   end
 
@@ -290,16 +303,14 @@ dissectOp = function(tvbuf, offset, root)
   if type == 0 then
     tree:append_text(" - " .. "Create Account")
 
-    tree:add(op_hdr_fields.destination, publicKey(tvbuf:raw(offset + 4, 32)))
-    offset = offset + 36
+    addDest()
 
-    amount, offset = readInt64(tvbuf, offset)
-    tree:add(op_hdr_fields.amount, amount)
+    tree:add(op_hdr_fields.amount, tvbuf:range(offset, 8))
+    advance(8)
   elseif type == 1 then
     tree:append_text(" - " .. "Payment")
 
-    tree:add(op_hdr_fields.destination, publicKey(tvbuf:raw(offset + 4, 32)))
-    offset = offset + 36
+    addDest()
 
     local asset
     type, offset = readInt(tvbuf, offset)
@@ -315,8 +326,8 @@ dissectOp = function(tvbuf, offset, root)
 
     tree:add(op_hdr_fields.asset, asset)
 
-    amount, offset = readInt64(tvbuf, offset)
-    tree:add(op_hdr_fields.amount, amount)
+    tree:add(op_hdr_fields.amount, tvbuf:range(offset, 8))
+    advance(8)
   end
 
   return offset

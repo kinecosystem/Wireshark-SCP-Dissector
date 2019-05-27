@@ -16,7 +16,8 @@ env_hdr_fields = {
 }
 
 stmt_hdr_fields = {
-  node_id   = ProtoField.string("scp.statement.node_id", "NodeId", base.ASCII),
+  node_id   = ProtoField.bytes("scp.statement.node_id", "NodeId", base.NONE),
+  node_id_s = ProtoField.string("scp.statement.node_id_s", "PK", base.ASCII),
   slot_idx  = ProtoField.uint64("scp.statement.slot_idx", "Slot Index", base.DEC),
 }
 
@@ -50,7 +51,8 @@ ext_hdr_fields = {
 }
 
 tx_hdr_fields = {
-  source    = ProtoField.string("scp.tx.source", "Source", base.ASCII),
+  source    = ProtoField.bytes("scp.tx.source", "Source", base.NONE),
+  source_s  = ProtoField.string("scp.tx.source_s", "PK", base.ASCII),
   fee       = ProtoField.uint32("scp.tx.fee", "Fee", base.DEC),
   sequence  = ProtoField.uint64("scp.tx.sequence", "Sequence", base.DEC),
   tb_min    = ProtoField.uint64("scp.tx.tb.min", "Timebounds - Min", base.DEC),
@@ -62,10 +64,12 @@ tx_hdr_fields = {
 }
 
 op_hdr_fields = {
-  source = ProtoField.string("scp.op.source", "Source", base.ASCII),
+  source   = ProtoField.bytes("scp.op.source", "Source", base.NONE),
+  source_s = ProtoField.string("scp.op.source_s", "PK", base.ASCII),
 
   -- payment
-  destination = ProtoField.string("scp.op.destination", "Destination", base.ASCII),
-  asset       = ProtoField.string("scp.op.asset", "Asset", base.ASCII),
-  amount      = ProtoField.int64("scp.op.amount", "Amount", base.DEC),
+  destination   = ProtoField.bytes("scp.op.destination", "Destination", base.NONE),
+  destination_s = ProtoField.string("scp.op.destination_s", "PK", base.ASCII),
+  asset         = ProtoField.string("scp.op.asset", "Asset", base.ASCII),
+  amount        = ProtoField.int64("scp.op.amount", "Amount", base.DEC),
 }
