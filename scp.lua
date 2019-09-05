@@ -250,14 +250,14 @@ dissectTx = function(tvbuf, offset, root)
   elseif memo_type == 1 then
     len, offset = readInt(tvbuf, offset)
     tree:add(tx_hdr_fields.memo_str, tvbuf:range(offset, len))
-
-    advance(len)
+    advance(len + (4 - len % 4) % 4)
   elseif memo_type == 2 then
     tree:add(tx_hdr_fields.memo_data, tvbuf:range(offset, 32))
     advance(32)
   else
     advance(32)
   end
+
 
   count, offset = readInt(tvbuf, offset)
   tree:add(tx_hdr_fields.op_count, count)
